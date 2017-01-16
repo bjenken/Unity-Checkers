@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class CheckerBoard : MonoBehaviour {
-    private static int boardSize = 8; // x == y
+    private static int boardSize = 4; // x == y
     public Piece[,] pieces = new Piece[boardSize, boardSize];
     public GameObject whitePiecePrefab;
     public GameObject blackPiecePrefab;
@@ -12,6 +12,7 @@ public class CheckerBoard : MonoBehaviour {
     private Vector3 pieceOffset = new Vector3(0.5f, 0, 0.5f);
 
     private bool isWhiteTurn;
+    private bool hasKilled;
 
     private Vector2 mouseOver;
     private Vector2 startDrag;
@@ -21,26 +22,24 @@ public class CheckerBoard : MonoBehaviour {
     private void Start()
     {
         isWhiteTurn = true;
+        hasKilled = false;
         this.GenerateBoard();
     }
 
     private void Update()
     {
+        CheckVictory();
         UpdateMouseOver();
+        int x = (int)mouseOver.x;
+        int y = (int)mouseOver.y;
 
-        // if it is my turn
-        {
-            int x = (int)mouseOver.x;
-            int y = (int)mouseOver.y;
+        if (selectedPiece != null)
+            UpdateHeldPiece(selectedPiece);
+        if (Input.GetMouseButtonDown(0))
+            SelectPiece(x, y);
 
-            if (selectedPiece != null)
-                UpdateHeldPiece(selectedPiece);
-            if (Input.GetMouseButtonDown(0))
-                SelectPiece(x, y);
-
-            if (Input.GetMouseButtonUp(0))
-                TryMove((int)startDrag.x, (int)startDrag.y, x, y);
-        }
+        if (Input.GetMouseButtonUp(0))
+            TryMove((int)startDrag.x, (int)startDrag.y, x, y);
     }
     private void UpdateMouseOver()
     {
@@ -78,14 +77,16 @@ public class CheckerBoard : MonoBehaviour {
         Piece p = pieces[x, y];
         if (p != null)
         {
-            selectedPiece = p;
-            startDrag = mouseOver;
+            if ((p.isWhite && isWhiteTurn) || (!p.isWhite && !isWhiteTurn))
+            {
+                selectedPiece = p;
+                startDrag = mouseOver;
+            }
         }
     }
 
     private void TryMove (int x1, int y1, int x2, int y2)
     {
-        //multiplayer support, might not need this
         startDrag = new Vector2(x1, y1);
         endDrag = new Vector2(x2, y2);
         selectedPiece = pieces[x1, y1];
@@ -114,22 +115,30 @@ public class CheckerBoard : MonoBehaviour {
         }
 
         //Check if move is VALID
-        if(selectedPiece.ValidMove(pieces, x1, y1, x2, y2))
+        if(selectedPiece.ValidMove(pieces, x1, y1, x2, y2, hasKilled))
         {
             //Did we jump another piece?
-            if (Mathf.Abs(x1-x2) == 2)
+            if (Mathf.Abs(x2-x1) == 2)
             {
                 Piece p = pieces[(x1 + x2) / 2, (y1 + y2) / 2];
                 if (p != null)
                 {
                     pieces[(x1 + x2) / 2, (y1 + y2) / 2] = null;
                     Destroy(p.gameObject);
+                    hasKilled = true;
                 }
             }
             pieces[x2, y2] = selectedPiece;
             pieces[x1, y1] = null;
             MovePiece(selectedPiece, x2, y2);
             EndTurn();
+            return;
+        }
+        else
+        {
+            MovePiece(selectedPiece, x1, y1);
+            startDrag = Vector2.zero;
+            selectedPiece = null;
             return;
         }
     }
@@ -156,15 +165,56 @@ public class CheckerBoard : MonoBehaviour {
     }
     private void EndTurn()
     {
+        int x = (int)endDrag.x;
+        int y = (int)endDrag.y;
+
+        //king applicable pieces
+        if (selectedPiece != null)
+        {
+            if (selectedPiece.isWhite && !selectedPiece.isKing && y == boardSize - 1)
+            {
+                selectedPiece.isKing = true;
+                selectedPiece.transform.Rotate(Vector3.right * 180);
+            }else if (!selectedPiece.isWhite && !selectedPiece.isKing && y == 0)
+            {
+                selectedPiece.isKing = true;
+                selectedPiece.transform.Rotate(Vector3.right * 180);
+            }
+        }
+        CheckVictory();
         selectedPiece = null;
         startDrag = Vector2.zero;
+        if (hasKilled)
+        {
+            bool canKill = pieces[x, y].CanStillKill(pieces, x, y, boardSize);
+            if (pieces[x, y].CanStillKill(pieces, x, y, boardSize))
+                return;
+        }
 
+        hasKilled = false;
         isWhiteTurn = !isWhiteTurn;
-        CheckVictory();
         return;
     }
     private bool CheckVictory()
     {
+        var remainingPieces = FindObjectsOfType<Piece>();
+        int totalWhite = 0;
+        int totalBlack = 0;
+
+        for (int i = 0; i < remainingPieces.Length; i++)
+        {
+            if (remainingPieces[i].isWhite == true)
+                totalWhite++;
+            else
+                totalBlack++;
+        }
+
+        if (totalWhite == 0)
+            Debug.Log("Blue Team Wins!");
+
+        if (totalBlack == 0)
+            Debug.Log("Red Team Wins!");
+
         return false;
     }
     private void GenerateBoard()
