@@ -3,14 +3,15 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class CheckerBoard : MonoBehaviour {
-    private static int boardSize = 4; // x == y
+    private static int boardSize = 6; // x == y
+    private static string boardMeshName = "Board";
     public Piece[,] pieces = new Piece[boardSize, boardSize];
     //pieces may not actually be black and white, but usually are
     public GameObject whitePiecePrefab;
     public GameObject blackPiecePrefab;
 
-    private Vector3 boardOffset = new Vector3(-4.0f,0.25f,-4.0f);
-    private Vector3 pieceOffset = new Vector3(0.5f, 0, 0.5f);
+    private Vector3 boardOffset = new Vector3(-3.1f,0.0f,-3.1f);
+    private Vector3 pieceOffset = new Vector3(0.6f, -0.9f, 0.7f);
 
     private bool isWhiteTurn;
     private bool hasKilled;
@@ -56,7 +57,7 @@ public class CheckerBoard : MonoBehaviour {
             Camera.main.ScreenPointToRay(Input.mousePosition),
             out hit, 
             25.0f,
-            LayerMask.GetMask("Board")))
+            LayerMask.GetMask(boardMeshName)))
         {
             // x and z since the board is on the "floor"
             mouseOver.x = (int)(hit.point.x - boardOffset.x);
@@ -91,56 +92,58 @@ public class CheckerBoard : MonoBehaviour {
         startDrag = new Vector2(x1, y1);
         endDrag = new Vector2(x2, y2);
         selectedPiece = pieces[x1, y1];
-
-        //Out of Bounds
-        if (x2 < 0 || x2 >= pieces.Length || y2 < 0 || y2 >= pieces.Length)
-        {
-            if (selectedPiece != null)
-                MovePiece(selectedPiece, x1, y1);
-
-            startDrag = Vector2.zero;
-            selectedPiece = null;
-            return;
-        }
-
-        //Piece has not removed, return it to its origin
         if (selectedPiece != null)
         {
-            if (endDrag == startDrag)
+            //Out of Bounds
+            if (x2 < 0 || x2 >= pieces.Length || y2 < 0 || y2 >= pieces.Length)
+            {
+                if (selectedPiece != null)
+                    MovePiece(selectedPiece, x1, y1);
+
+                startDrag = Vector2.zero;
+                selectedPiece = null;
+                return;
+            }
+
+            //Piece has not removed, return it to its origin
+            if (selectedPiece != null)
+            {
+                if (endDrag == startDrag)
+                {
+                    MovePiece(selectedPiece, x1, y1);
+                    startDrag = Vector2.zero;
+                    selectedPiece = null;
+                    return;
+                }
+            }
+
+            //Check if move is VALID
+            if (selectedPiece.ValidMove(pieces, x1, y1, x2, y2, hasKilled))
+            {
+                //Did we jump another piece?
+                if (Mathf.Abs(x2 - x1) == 2)
+                {
+                    Piece p = pieces[(x1 + x2) / 2, (y1 + y2) / 2];
+                    if (p != null)
+                    {
+                        pieces[(x1 + x2) / 2, (y1 + y2) / 2] = null;
+                        Destroy(p.gameObject);
+                        hasKilled = true;
+                    }
+                }
+                pieces[x2, y2] = selectedPiece;
+                pieces[x1, y1] = null;
+                MovePiece(selectedPiece, x2, y2);
+                EndTurn();
+                return;
+            }
+            else
             {
                 MovePiece(selectedPiece, x1, y1);
                 startDrag = Vector2.zero;
                 selectedPiece = null;
                 return;
             }
-        }
-
-        //Check if move is VALID
-        if(selectedPiece.ValidMove(pieces, x1, y1, x2, y2, hasKilled))
-        {
-            //Did we jump another piece?
-            if (Mathf.Abs(x2-x1) == 2)
-            {
-                Piece p = pieces[(x1 + x2) / 2, (y1 + y2) / 2];
-                if (p != null)
-                {
-                    pieces[(x1 + x2) / 2, (y1 + y2) / 2] = null;
-                    Destroy(p.gameObject);
-                    hasKilled = true;
-                }
-            }
-            pieces[x2, y2] = selectedPiece;
-            pieces[x1, y1] = null;
-            MovePiece(selectedPiece, x2, y2);
-            EndTurn();
-            return;
-        }
-        else
-        {
-            MovePiece(selectedPiece, x1, y1);
-            startDrag = Vector2.zero;
-            selectedPiece = null;
-            return;
         }
     }
 
@@ -158,7 +161,7 @@ public class CheckerBoard : MonoBehaviour {
             Camera.main.ScreenPointToRay(Input.mousePosition),
             out hit,
             25.0f,
-            LayerMask.GetMask("Board")))
+            LayerMask.GetMask(boardMeshName)))
         {
             p.transform.position = hit.point + Vector3.up;
         }
