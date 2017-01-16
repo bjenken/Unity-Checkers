@@ -5,6 +5,7 @@ using UnityEngine;
 public class CheckerBoard : MonoBehaviour {
     private static int boardSize = 4; // x == y
     public Piece[,] pieces = new Piece[boardSize, boardSize];
+    //pieces may not actually be black and white, but usually are
     public GameObject whitePiecePrefab;
     public GameObject blackPiecePrefab;
 
@@ -174,11 +175,11 @@ public class CheckerBoard : MonoBehaviour {
             if (selectedPiece.isWhite && !selectedPiece.isKing && y == boardSize - 1)
             {
                 selectedPiece.isKing = true;
-                selectedPiece.transform.Rotate(Vector3.right * 180);
+                selectedPiece.transform.Rotate(Vector3.up * 180);
             }else if (!selectedPiece.isWhite && !selectedPiece.isKing && y == 0)
             {
                 selectedPiece.isKing = true;
-                selectedPiece.transform.Rotate(Vector3.right * 180);
+                selectedPiece.transform.Rotate(Vector3.up * 180);
             }
         }
         CheckVictory();
